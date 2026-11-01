@@ -1,18 +1,4 @@
-* {
-}
-body {
-}
-.container {
-}
-
-.row {
-}
-
-.card {
-  margin-bottom: 12px !important;
-}
-.highlight {
-  background-color: yellow;
-  border-radius: 20px;
-  border: 1px yellow solid;
+.menu-emoji {
+  font-size: 2.5rem;
+  line-height: 1.2;
 }

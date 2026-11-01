@@ -1,60 +1,70 @@
-const assets = [
-    "/",
-    "static/css/style.css",
-    "static/css/style.css/bootstrap.min.css",
-    "static/js/bootstrap.bundle.min.js",
-    "static/js/app.js",
-    "static/images/logo.png",
-    "static/images/favicon.jpg",
-    "static/icons/icon-128x128.png",
-    "static/icons/icon-192x192.png",
-    "static/icons/icon-384x384.png",
-    "static/icons/icon-512x512.png",
-    "static/icons/desktop_screenshot.png",
-    "static/icons/mobile_screenshot.png"
-  ];
+/**
+ * Service worker: lets the app install as a PWA and show an offline page.
+ * README Step 10 changes what it caches and when old caches are deleted.
+ */
 
-const CATALOGUE_ASSETS = "catalogue-assets";
+const CACHE_NAME = "canteen-v2";
+const STATIC_ASSETS = [
+  "/offline.html",
+  "/static/css/bootstrap.min.css",
+  "/static/css/style.css",
+  "/static/js/bootstrap.bundle.min.js",
+  "/static/js/app.js",
+  "/static/images/logo.svg",
+  "/static/images/favicon.png",
+  "/static/manifest.json",
+  "/static/icons/icon-192x192.png",
+  "/static/icons/icon-512x512.png",
+];
 
-self.addEventListener("install", (installEvt) => {
-  installEvt.waitUntil(
+/**
+ * Install: download and cache the static files the app needs offline.
+ */
+self.addEventListener("install", (event) => {
+  event.waitUntil(
     caches
-      .open(CATALOGUE_ASSETS)
-      .then((cache) => {
-        console.log(cache)
-        cache.addAll(assets);
-      })
-      .then(self.skipWaiting())
-      .catch((e) => {
-        console.log(e);
-      })
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting()),
   );
 });
 
-self.addEventListener("activate", function (evt) {
-  evt.waitUntil(
+/**
+ * Activate: runs when a new version of this file takes over.
+ * README Step 10 makes it delete caches left by older versions.
+ */
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
     caches
       .keys()
-      .then((keyList) => {
-        return Promise.all(
-          keyList.map((key) => {
-            if (key === CATALOGUE_ASSETS) {
-              console.log("Removed old cache from", key);
-              return caches.delete(key);
-            }
-          })
-        );
-      })
-      .then(() => self.clients.claim())
+      .then((names) =>
+        Promise.all(
+          names
+            .filter((name) => name !== CACHE_NAME)
+            .map((name) => caches.delete(name)),
+        ),
+      )
+      .then(() => self.clients.claim()),
   );
 });
 
-self.addEventListener("fetch", function (evt) {
-  evt.respondWith(
-    fetch(evt.request).catch(() => {
-      return caches.open(CATALOGUE_ASSETS).then((cache) => {
-        return cache.match(evt.request);
-      });
-    })
-  );
-})
+/**
+ * Fetch: runs for every request a page makes.
+ * README Step 10 limits caching to static files and the offline page.
+ */
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== "GET" || url.origin !== location.origin) return;
+
+  if (url.pathname.startsWith("/static/")) {
+    event.respondWith(
+      caches
+        .match(event.request)
+        .then((cached) => cached || fetch(event.request)),
+    );
+  } else if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match("/offline.html")),
+    );
+  }
+});

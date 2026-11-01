@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="csrf-token"
+      content="{{ csrf_token() if csrf_token is defined else '' }}"
+    />
+    <title>Memory &amp; Session Lab</title>
+    <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg" />
+    <link rel="icon" type="image/png" href="/static/images/favicon.png" />
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('memory_lab.static', filename='lab.css') }}"
+    />
+  </head>
+  <body class="lab-dashboard bg-body-tertiary">
+    <header class="lab-header">
+      <div
+        class="container-fluid d-flex flex-wrap align-items-center gap-2 py-2"
+      >
+        <h1 class="h4 m-0 me-3">Memory &amp; Session Lab</h1>
+        <span id="lab-connection" class="badge text-bg-secondary"
+          >Connecting…</span
+        >
+        <div class="ms-auto d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-sm btn-primary" id="open-tab">
+            New tab (same session)
+          </button>
+          <button type="button" class="btn btn-sm btn-primary" id="open-window">
+            New window (same session)
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-warning"
+            data-customers="10"
+          >
+            +10 customers
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-warning"
+            data-customers="50"
+          >
+            +50 customers
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            id="reset-server"
+          >
+            Reset server
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            id="clear-browser"
+          >
+            Clear browser storage
+          </button>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <p
+          id="lab-message"
+          class="small text-body-secondary mb-2"
+          role="status"
+          aria-live="polite"
+        >
+          Tip: tabs and windows in the same browser share cookies, so they share
+          one session. To get a <strong>new</strong> session, open the app in a
+          private/incognito window or a different browser, or click
+          <strong>+10 customers</strong>.
+        </p>
+      </div>
+    </header>
+
+    <main class="container-fluid py-3">
+      <details class="lab-help card mb-3">
+        <summary class="card-body py-2">
+          <strong>How to read this dashboard</strong> (and what the buttons do)
+        </summary>
+        <div class="card-body pt-0 small">
+          <p>
+            This dashboard measures the School Canteen app while it runs. The
+            top half is about <strong>memory</strong> (on the server and in the
+            browser). The bottom half is about <strong>sessions</strong> (how
+            the server remembers each customer). Everything updates once a
+            second.
+          </p>
+          <ul class="mb-0">
+            <li>
+              <strong>New tab / New window (same session)</strong>: opens the
+              menu again in this browser. It shares your cookies, so it joins
+              <strong>your</strong> session: look for a new tab ID on your
+              session tile and in <em>Open tabs</em>. A web page cannot open a
+              private window, so to see a new session open the app in a
+              private/incognito window or another browser yourself.
+            </li>
+            <li>
+              <strong>+10 / +50 customers</strong>: adds that many customers,
+              each on their own device, so each gets their own session. Each one
+              views the menu, adds 1 to 3 items and about half sign in, then
+              they leave. Click it again to add more on top. These are real
+              requests through your code, so watch what your code does with all
+              those sessions: does the memory keep them forever?
+            </li>
+            <li>
+              <strong>Reset server</strong>: deletes every session and clears
+              every cache, so you can start an experiment again. Saving a
+              <code>.py</code> file also restarts the server.
+            </li>
+            <li>
+              <strong>Clear browser storage</strong>: deletes this site's
+              <code>localStorage</code>, Cache API caches and service worker.
+            </li>
+          </ul>
+        </div>
+      </details>
+
+      <section class="mb-3" aria-labelledby="kpi-heading">
+        <h2 class="visually-hidden" id="kpi-heading">Key numbers</h2>
+        <div class="row g-3" id="kpis"></div>
+        <details class="lab-help small mt-2">
+          <summary>What do these numbers mean?</summary>
+          <dl class="row mt-2 mb-0">
+            <dt class="col-md-3">Python heap</dt>
+            <dd class="col-md-9">
+              The memory used by every Python object in the server right now
+              (measured with the standard library module
+              <code>tracemalloc</code>). <em>Peak</em> is the most it has been.
+            </dd>
+            <dt class="col-md-3">Allocated by your code</dt>
+            <dd class="col-md-9">
+              The part of the Python heap created by lines in your files
+              (<code>main.py</code>, <code>session_store.py</code>,
+              <code>database_manager.py</code> and the templates). This is the
+              number your changes affect.
+            </dd>
+            <dt class="col-md-3">Process memory (RSS)</dt>
+            <dd class="col-md-9">
+              All the memory the operating system has given the server,
+              including Python itself and Flask. It is much bigger than the heap
+              and rarely goes down, because Python keeps freed memory to reuse
+              later.
+            </dd>
+            <dt class="col-md-3">Server sessions</dt>
+            <dd class="col-md-9">
+              The number of entries in your <code>SESSIONS</code> dictionary:
+              one for every browser that has visited and not expired.
+            </dd>
+            <dt class="col-md-3">Open tabs</dt>
+            <dd class="col-md-9">
+              Browser tabs showing the app that reported in during the last 8
+              seconds, and the total number of DOM nodes (HTML elements) in
+              them.
+            </dd>
+            <dt class="col-md-3">Browser storage</dt>
+            <dd class="col-md-9">
+              The browser's own estimate of the storage this site uses
+              (<code>localStorage</code>, Cache API and more). Browsers add
+              padding for files from other websites, so treat it as a rough
+              guide.
+            </dd>
+          </dl>
+        </details>
+      </section>
+
+      <section class="row g-3 mb-3">
+        <div class="col-xl-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h2 class="h6">Server memory</h2>
+              <canvas
+                id="server-chart"
+                class="lab-chart"
+                aria-label="Server memory over time"
+                role="img"
+              ></canvas>
+              <div class="lab-legend" id="server-legend"></div>
+              <details class="lab-help small mt-2">
+                <summary>What does this show?</summary>
+                <p class="mt-2">
+                  The last 3 minutes of server memory. <strong>Blue</strong> is
+                  the whole Python heap. <strong>Red</strong> is the part
+                  allocated by your code.
+                </p>
+                <ul class="mb-0">
+                  <li>
+                    A <strong>jump</strong> when customers arrive is normal:
+                    each one needs a session.
+                  </li>
+                  <li>
+                    A line that <strong>keeps climbing</strong> while nobody new
+                    arrives is a <strong>memory leak</strong>: something keeps
+                    growing and is never released.
+                  </li>
+                  <li>
+                    A line that <strong>drops</strong> means memory was freed,
+                    for example when sessions expire.
+                  </li>
+                </ul>
+              </details>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h2 class="h6">Client memory</h2>
+              <canvas
+                id="client-chart"
+                class="lab-chart"
+                aria-label="Client memory over time"
+                role="img"
+              ></canvas>
+              <div class="lab-legend" id="client-legend"></div>
+              <details class="lab-help small mt-2">
+                <summary>What does this show?</summary>
+                <p class="mt-2">
+                  The last 3 minutes in the browser. These are counts, not
+                  bytes.
+                </p>
+                <ul class="mb-0">
+                  <li>
+                    <strong>Purple</strong>: DOM nodes in all open app tabs.
+                    Every HTML element uses memory in the tab.
+                  </li>
+                  <li>
+                    <strong>Orange</strong>: responses saved in the Cache API by
+                    the service worker. They stay on the device until deleted.
+                  </li>
+                  <li>
+                    <strong>Green</strong>: keys in <code>localStorage</code>.
+                    They stay on the device until deleted, and every tab shares
+                    them.
+                  </li>
+                </ul>
+                <p class="mt-2 mb-0">
+                  If a line climbs while you are not doing anything, the client
+                  code has a leak.
+                </p>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card mb-3">
+        <div class="card-body">
+          <h2 class="h6">Scorecard</h2>
+          <p class="small text-body-secondary">
+            Each check matches a README step. <strong>✔ green</strong> means
+            fixed, <strong>✘ red</strong> means not fixed yet and
+            <strong>… grey</strong> means the lab needs you to do something in
+            the app to test it (the hint tells you what).
+          </p>
+          <div class="row g-3" id="checks"></div>
+        </div>
+      </section>
+
+      <section class="card mb-3">
+        <div class="card-body">
+          <h2 class="h6">
+            Server sessions
+            <span class="badge text-bg-secondary" id="session-count">0</span>
+          </h2>
+          <p class="small text-body-secondary" id="session-summary"></p>
+          <details class="lab-help small mb-3">
+            <summary>What does each tile show?</summary>
+            <p class="mt-2">
+              Each tile is one entry in your <code>SESSIONS</code> dictionary:
+              one customer's browser. The tile with the
+              <strong>blue border</strong> is your browser. Grey tiles are
+              simulated customers. They have already left, so their session is
+              only still there if your code has not removed it.
+            </p>
+            <ul class="mb-0">
+              <li>
+                <strong>Colour and label</strong>: a one-way hash of the session
+                ID. The real ID is never shown because anyone who knows it can
+                take over the session. The badge in the corner of each app tab
+                has the same colour.
+              </li>
+              <li>
+                <strong>Size</strong>: the memory this session's data uses on
+                the server.
+              </li>
+              <li>
+                <strong>ID strength</strong>: roughly how many guesses an
+                attacker needs, in bits. Every extra bit doubles it. 128 bits or
+                more is safe.
+              </li>
+              <li>
+                <strong>Age and Idle</strong>: how long since the session was
+                created and since it was last used. The orange bar fills up as
+                the session gets close to expiring, and the tile fades.
+              </li>
+              <li><strong>Tabs</strong>: open tabs using this session.</li>
+              <li><strong>keys</strong>: what is stored in the session.</li>
+            </ul>
+          </details>
+          <div class="lab-tiles" id="sessions"></div>
+        </div>
+      </section>
+
+      <section class="row g-3 mb-3">
+        <div class="col-xl-7">
+          <div class="card h-100">
+            <div class="card-body">
+              <h2 class="h6">Where is server memory going?</h2>
+              <details class="lab-help small mb-2">
+                <summary>What does this show?</summary>
+                <p class="mt-2 mb-0">
+                  The lines of <strong>your</strong> code that created memory
+                  that is still in use. <em>Live memory</em> is how much, and
+                  <em>Blocks</em> is how many separate pieces. Lines run once at
+                  start-up (like <code>app = Flask(__name__)</code>) are a
+                  normal one-off cost. A line whose memory keeps growing is
+                  holding on to data it does not need.
+                </p>
+              </details>
+              <div class="table-responsive">
+                <table class="table table-sm small" id="attribution"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-5">
+          <div class="card h-100">
+            <div class="card-body">
+              <h2 class="h6">Module-level data</h2>
+              <details class="lab-help small mb-2">
+                <summary>What does this show?</summary>
+                <p class="mt-2 mb-0">
+                  Variables defined at the top level of your Python files, such
+                  as <code>SESSIONS</code> and <code>REQUEST_LOG</code>. They
+                  are created once, shared by every user and live until the
+                  server stops. <em>deque (max 100)</em> means the collection is
+                  <strong>bounded</strong>: it can never hold more than 100
+                  items.
+                </p>
+              </details>
+              <div class="table-responsive">
+                <table class="table table-sm small" id="containers"></table>
+              </div>
+              <h2 class="h6 mt-3">Caches</h2>
+              <details class="lab-help small mb-2">
+                <summary>What does this show?</summary>
+                <p class="mt-2 mb-0">
+                  Functions using <code>@lru_cache</code>. A
+                  <strong>hit</strong> reused a stored result instead of running
+                  the function again. A <strong>miss</strong> had to run it.
+                  <em>Entries</em> shows how many results are stored and the
+                  maximum allowed (∞ means unbounded).
+                </p>
+              </details>
+              <div class="table-responsive">
+                <table class="table table-sm small" id="caches"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="row g-3 mb-3">
+        <div class="col-xl-5">
+          <div class="card h-100">
+            <div class="card-body">
+              <h2 class="h6">Open tabs</h2>
+              <details class="lab-help small mb-2">
+                <summary>What does this show?</summary>
+                <p class="mt-2 mb-0">
+                  Every open tab showing the app. The <strong>tab ID</strong> is
+                  kept in <code>sessionStorage</code>, which is separate for
+                  each tab. The <strong>session</strong> comes from the cookie,
+                  which every tab in the same browser shares.
+                  <em>DOM nodes</em> shows the count and how much it has grown
+                  since the page loaded. <em>JS heap</em> is only reported by
+                  Chromium browsers and updates slowly.
+                </p>
+              </details>
+              <div class="table-responsive">
+                <table class="table table-sm small" id="tabs"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3">
+          <div class="card h-100">
+            <div class="card-body">
+              <h2 class="h6">Cookies set by the server</h2>
+              <details class="lab-help small mb-2">
+                <summary>What do the flags mean?</summary>
+                <ul class="mt-2 mb-0">
+                  <li><strong>HttpOnly</strong>: JavaScript cannot read it.</li>
+                  <li><strong>Secure</strong>: only sent over HTTPS.</li>
+                  <li>
+                    <strong>SameSite</strong>: not sent with requests started by
+                    other websites.
+                  </li>
+                  <li>
+                    <strong>Expires</strong>: the browser deletes it after a set
+                    time.
+                  </li>
+                </ul>
+              </details>
+              <div class="table-responsive">
+                <table class="table table-sm small" id="cookies"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <h2 class="h6">Browser storage for this site</h2>
+              <details class="lab-help small mb-2">
+                <summary>What does this show?</summary>
+                <p class="mt-2 mb-0">
+                  Storage that every tab of this site shares and that stays on
+                  the device after the tabs close.
+                  <code>localStorage</code> holds text saved by
+                  <code>app.js</code>. The Cache API holds responses saved by
+                  the service worker. "Not static" entries are pages or live
+                  data that should not have been cached.
+                </p>
+              </details>
+              <div id="storage"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="{{ url_for('memory_lab.static', filename='dashboard.js') }}"></script>
+  </body>
+</html>

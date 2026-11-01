@@ -1,107 +1,54 @@
+/**
+ * Client-side code that runs on every page of the canteen app.
+ * README Steps 8 and 9 change this file.
+ */
+
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", function () {
-    navigator.serviceWorker
-      .register("static/js/serviceWorker.js")
-      .then((res) => console.log("service worker registered"))
-      .catch((err) => console.log("service worker not registered", err));
-  });
+  navigator.serviceWorker.register("/serviceWorker.js");
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  const navLinks = document.querySelectorAll(".nav-link");
-  const currentUrl = window.location.pathname;
+const MAX_ACTIVITY_ITEMS = 5;
 
-  navLinks.forEach((link) => {
-    const linkUrl = link.getAttribute("href");
-    if (linkUrl === currentUrl) {
-      link.classList.add("active");
-      link.setAttribute("aria-current", "page");
-    } else {
-      link.classList.remove("active");
-      link.removeAttribute("aria-current");
-    }
-  });
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-  const form = document.getElementById("search-form");
-  const input = document.getElementById("search-input");
-
-  form.addEventListener("submit", function (event) {
-    event.preventDefault();
-    const searchTerm = input.value.trim().toLowerCase();
-    if (searchTerm) {
-      highlightText(searchTerm);
-    }
-  });
-
-  function highlightText(searchTerm) {
-    const mainContent = document.querySelector("main");
-    removeHighlights(mainContent);
-    highlightTextNodes(mainContent, searchTerm);
+/**
+ * Add a message to the top of the "Live updates" list on the menu page.
+ * README Step 8 limits how many messages are kept.
+ */
+function addActivity(message) {
+  const feed = document.getElementById("activity");
+  if (!feed) return;
+  const item = document.createElement("li");
+  item.className = "list-group-item small";
+  item.textContent = message;
+  feed.prepend(item);
+  while (feed.children.length > MAX_ACTIVITY_ITEMS) {
+    feed.lastElementChild.remove();
   }
+}
 
-  function removeHighlights(element) {
-    const highlightedElements = element.querySelectorAll("span.highlight");
-    highlightedElements.forEach((el) => {
-      el.replaceWith(el.textContent);
-    });
-  }
-
-  function highlightTextNodes(element, searchTerm) {
-    const regex = new RegExp(`(${searchTerm})`, "gi");
-    const walker = document.createTreeWalker(
-      element,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
+/**
+ * Ask the server for this user's order and update the page to match.
+ * It runs every 2 seconds, so every open tab shows the same order.
+ * README Step 9 changes how the order is requested and saved.
+ */
+async function refreshMyOrder() {
+  try {
+    const response = await fetch("/my-order.json", { cache: "no-store" });
+    const myOrder = await response.json();
+    const total = (myOrder.total / 100).toFixed(2);
+    document.getElementById("order-count").textContent = myOrder.count;
+    localStorage.setItem("myOrder", JSON.stringify(myOrder));
+    addActivity(
+      `${new Date().toLocaleTimeString()}: ${myOrder.count} items, $${total}`,
     );
-    let node;
-    while ((node = walker.nextNode())) {
-      const parent = node.parentNode;
-      if (
-        parent &&
-        parent.nodeName !== "SCRIPT" &&
-        parent.nodeName !== "STYLE"
-      ) {
-        const text = node.nodeValue;
-        const highlightedText = text.replace(
-          regex,
-          '<span class="highlight">$1</span>'
-        );
-        if (highlightedText !== text) {
-          const tempDiv = document.createElement("div");
-          tempDiv.innerHTML = highlightedText;
-          while (tempDiv.firstChild) {
-            parent.insertBefore(tempDiv.firstChild, node);
-          }
-          parent.removeChild(node);
-        }
-      }
-    }
+  } catch (error) {
+    const saved = JSON.parse(localStorage.getItem("myOrder"));
+    addActivity(
+      `Offline: your last saved order had ${saved ? saved.count : 0} items`,
+    );
   }
-});
+}
 
-document.addEventListener("DOMContentLoaded", function () {
-  if (window.location.pathname === "/") {
-    const buttons = [
-      { id: "all", url: "/" },
-      { id: "python", url: "?lang=python" },
-      { id: "cpp", url: "?lang=cpp" },
-      { id: "bash", url: "?lang=bash" },
-      { id: "sql", url: "?lang=sql" },
-      { id: "html", url: "?lang=html" },
-      { id: "css", url: "?lang=css" },
-      { id: "js", url: "?lang=javascript" },
-    ];
-
-    buttons.forEach((button) => {
-      const element = document.getElementById(button.id);
-      if (element) {
-        element.addEventListener("click", function () {
-          window.location.href = button.url;
-        });
-      }
-    });
-  }
-});
+if (document.getElementById("order-count")) {
+  refreshMyOrder();
+  setInterval(refreshMyOrder, 2000);
+}

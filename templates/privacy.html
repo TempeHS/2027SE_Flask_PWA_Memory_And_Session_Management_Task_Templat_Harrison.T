@@ -1,9 +1,29 @@
 {% extends 'layout.html' %} {% block content %}
-<div class="container">
-  <div class="row">
-    <h1 class="display-1">Privacy Policy</h1>
-    <p>Policy here...</p>
-  </div>
-  <div class="row"></div>
-</div>
+<h1 class="display-5">Privacy Policy</h1>
+<p>This app stores the minimum data needed to take your canteen order.</p>
+<ul>
+  <li>
+    <strong>Cookie <code>session_id</code></strong
+    >: a random ID that links your browser to your session on the server. It is
+    <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite=Lax</code> and
+    expires after 30 minutes.
+  </li>
+  <li>
+    <strong>Cookie <code>session</code></strong
+    >: a signed cookie that holds the CSRF token protecting the forms.
+  </li>
+  <li>
+    <strong>Server session</strong>: your first name and the items in your
+    current order. It is deleted after 2 minutes of inactivity or when you sign
+    out.
+  </li>
+  <li>
+    <strong>Database</strong>: placed orders (your first name, the items and the
+    total) so the canteen can prepare them.
+  </li>
+  <li>
+    <strong><code>localStorage</code> key <code>myOrder</code></strong
+    >: a copy of your order summary for when you are offline.
+  </li>
+</ul>
 {% endblock %}
