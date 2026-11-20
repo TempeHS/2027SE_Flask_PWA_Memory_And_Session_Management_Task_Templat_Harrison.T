@@ -8,8 +8,6 @@ whole server, so every byte stored here is multiplied by the number of users.
 
 import time
 
-import database_manager as dbHandler
-
 SESSIONS = {}
 next_id = 1
 
@@ -27,11 +25,8 @@ def create_session():
         "order": [],
         "created": time.time(),
         "last_seen": time.time(),
-        "menu": dbHandler.menu_get("%"),
-        "page_cache": [],
     }
     return session_id
-
 
 def get_session(session_id):
     """Return the data for a session ID, or None if there is no such session.

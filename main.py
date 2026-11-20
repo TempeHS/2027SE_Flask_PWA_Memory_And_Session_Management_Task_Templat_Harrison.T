@@ -119,9 +119,9 @@ def index():
     """
     data = current_session()
     category = selected_category()
-    menu = [item for item in data["menu"] if category in ("%", item["category"])]
+    menu = dbHandler.menu_get(category)
     items, total = order_details(data["order"])
-    html = render_template(
+    return render_template(
         "index.html",
         data=data,
         menu=menu,
@@ -131,9 +131,6 @@ def index():
         total=total,
         placed=request.args.get("placed", type=int),
     )
-    data["page_cache"].append(html)
-    return html
-
 
 @app.route("/add", methods=["POST"])
 def add_item():

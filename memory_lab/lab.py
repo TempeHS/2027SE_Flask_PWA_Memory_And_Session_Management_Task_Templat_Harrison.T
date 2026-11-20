@@ -34,7 +34,7 @@ from flask import session
 
 from . import measure
 
-MAX_CUSTOMERS_PER_CLICK = 50
+MAX_CUSTOMERS_PER_CLICK = 100000
 CSRF_PATTERN = re.compile(r'name="csrf_token"\s+value="([^"]+)"')
 ITEM_PATTERN = re.compile(r'name="itemID"\s+value="(\d+)"')
 FIRST_NAMES = ["Ava", "Liam", "Mia", "Noah", "Zoe", "Jack", "Ruby", "Priya", "Kai"]
