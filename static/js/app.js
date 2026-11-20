@@ -7,8 +7,6 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/serviceWorker.js");
 }
 
-const MAX_ACTIVITY_ITEMS = 5;
-
 /**
  * Add a message to the top of the "Live updates" list on the menu page.
  * README Step 8 limits how many messages are kept.
@@ -20,9 +18,6 @@ function addActivity(message) {
   item.className = "list-group-item small";
   item.textContent = message;
   feed.prepend(item);
-  while (feed.children.length > MAX_ACTIVITY_ITEMS) {
-    feed.lastElementChild.remove();
-  }
 }
 
 /**
@@ -32,11 +27,11 @@ function addActivity(message) {
  */
 async function refreshMyOrder() {
   try {
-    const response = await fetch("/my-order.json", { cache: "no-store" });
+    const response = await fetch("/my-order.json?t=" + Date.now());
     const myOrder = await response.json();
     const total = (myOrder.total / 100).toFixed(2);
     document.getElementById("order-count").textContent = myOrder.count;
-    localStorage.setItem("myOrder", JSON.stringify(myOrder));
+    localStorage.setItem("myOrder-" + Date.now(), JSON.stringify(myOrder));
     addActivity(
       `${new Date().toLocaleTimeString()}: ${myOrder.count} items, $${total}`,
     );

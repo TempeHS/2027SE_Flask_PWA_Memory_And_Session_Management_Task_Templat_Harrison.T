@@ -6,7 +6,6 @@ with two lines (the attach_lab import and the attach_lab(app) call). It lives
 in the memory_lab folder, which you do not need to edit.
 """
 
-from collections import deque
 import re
 import time
 
@@ -26,8 +25,6 @@ import session_store
 
 app = Flask(__name__)
 app.secret_key = b"6HlQfWhu03PttohW;apl"
-app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 csrf = CSRFProtect(app)
 attach_lab(app)
 
@@ -40,7 +37,7 @@ CSP = (
     "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 )
 
-REQUEST_LOG = deque(maxlen=100)
+REQUEST_LOG = []
 
 
 @app.before_request
@@ -49,7 +46,9 @@ def log_request():
 
     README Step 7 limits how much this log can hold.
     """
-    REQUEST_LOG.append((time.time(), request.method, request.path))
+    REQUEST_LOG.append(
+        {"time": time.time(), "path": request.path, "headers": dict(request.headers)}
+    )
 
 
 def current_session():
@@ -61,7 +60,6 @@ def current_session():
     request) so add_headers() can send it back to the browser as a cookie.
     README Step 12 adds the clean-up of expired sessions.
     """
-    session_store.remove_expired_sessions()
     session_id = request.cookies.get(COOKIE_NAME)
     data = session_store.get_session(session_id)
     if data is None:
@@ -81,16 +79,7 @@ def add_headers(response):
     deleted.
     """
     if "new_session_id" in g:
-        response.set_cookie(
-            COOKIE_NAME,
-            g.new_session_id,
-            max_age=session_store.ABSOLUTE_TIMEOUT,
-            httponly=True,
-            secure=True,
-            samesite="Lax",
-        )
-    if g.get("end_session"):
-        response.delete_cookie(COOKIE_NAME, httponly=True, secure=True, samesite="Lax")
+        response.set_cookie(COOKIE_NAME, g.new_session_id)
     response.headers["Content-Security-Policy"] = CSP
     return response
 
@@ -130,9 +119,9 @@ def index():
     """
     data = current_session()
     category = selected_category()
-    menu = dbHandler.menu_get(category)
+    menu = [item for item in data["menu"] if category in ("%", item["category"])]
     items, total = order_details(data["order"])
-    return render_template(
+    html = render_template(
         "index.html",
         data=data,
         menu=menu,
@@ -142,6 +131,8 @@ def index():
         total=total,
         placed=request.args.get("placed", type=int),
     )
+    data["page_cache"].append(html)
+    return html
 
 
 @app.route("/add", methods=["POST"])
@@ -190,7 +181,6 @@ def login():
     name = request.form.get("name", "").strip()
     if NAME_PATTERN.match(name):
         data["name"] = name
-        g.new_session_id = session_store.regenerate_session(g.session_id)
     return redirect(url_for("index"))
 
 
@@ -200,8 +190,8 @@ def logout():
 
     README Step 15 makes this destroy the whole session.
     """
-    session_store.destroy_session(request.cookies.get(COOKIE_NAME))
-    g.end_session = True
+    data = current_session()
+    data["name"] = None
     return redirect(url_for("index"))
 
 
